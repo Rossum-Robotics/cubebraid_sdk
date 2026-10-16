@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # -----------------------------------------------------------------
-# 1. 全局统一设置所有编译目标的输出目录
+# 全局统一设置所有编译目标的输出目录
 # -----------------------------------------------------------------
 set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/SDK_Demos")
 
@@ -19,7 +19,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${OUTPUT_DIR}")
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # -----------------------------------------------------------------
-# 2. 区分平台的库文件检索路径
+# 区分平台的库文件检索路径
 # -----------------------------------------------------------------
 if(WIN32)
     set(SDK_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/win")
@@ -52,6 +52,32 @@ macro(find_sdk_library VAR_NAME LIB_NAME)
     endif()
 endmacro()
 
+option(USE_OPENCV "Enable OpenCV support" ON)
+
+# ============================================================
+# 依赖库查找：OpenCV (可选)
+# ============================================================
+if(WIN32)
+    if(USE_OPENCV)
+        find_package(OpenCV REQUIRED)
+        if(OpenCV_FOUND)
+            message(STATUS "已找到 OpenCV 版本: ${OpenCV_VERSION}")
+            include_directories(${OpenCV_INCLUDE_DIRS})
+        endif()
+    endif()
+else()
+    if(USE_OPENCV)
+        find_package(OpenCV REQUIRED)
+
+        message(STATUS "----------------------------------------")
+        message(STATUS "OpenCV")
+        message(STATUS "Version : ${OpenCV_VERSION}")
+        message(STATUS "----------------------------------------")
+
+        include_directories(${OpenCV_INCLUDE_DIRS})
+    endif()
+endif()
+
 # 查找 SDK 自身的动态库
 find_sdk_library(LIB_LOGGER "LoggerSDK")
 find_sdk_library(LIB_PLC "PLC_SDK")
@@ -61,6 +87,7 @@ find_sdk_library(LIB_KAWASAKI "KawasakiKinematicsSDK")
 find_sdk_library(LIB_ROBOT "RobotSDK")
 find_sdk_library(LIB_AGV "AGV_SDK")
 find_sdk_library(LIB_CAMERA "CameraSDK")
+find_sdk_library(LIB_DLSEG "DlSegSDK")
 
 # Linux 下额外查找第三方依赖库
 if(UNIX AND NOT APPLE)
@@ -144,6 +171,10 @@ if(UNIX AND NOT APPLE)
 else()
     target_link_libraries(CameraSDK_demo PRIVATE ${LIB_CAMERA})
 endif()
+
+#### DlSeg SDK 测试demo
+add_executable(dlseg_sdk_demo ${PROJECT_SOURCE_DIR}/src/CubeBraidSDK/DL_SDK/dlseg_sdk_demo.cpp)
+target_link_libraries(dlseg_sdk_demo PRIVATE ${LIB_DLSEG} ${OpenCV_LIBS})
 
 #### PLC SDK 测试demo (同时链接 PLC_SDK 与 snap7)
 add_executable(plc_sdk_demo ${PROJECT_SOURCE_DIR}/src/CubeBraidSDK/PLC_SDK/plc_sdk_demo.cpp)
