@@ -45,7 +45,7 @@ namespace dlseg_sdk
     };
 
     /**
-     * @brief SDK 初始化配置参数[cite: 9]
+     * @brief SDK 初始化配置参数
      */
     struct SdkConfig
     {
@@ -80,13 +80,13 @@ namespace dlseg_sdk
         StatusCode initialize(const SdkConfig& config);
 
         /**
-        * @brief 执行 ONNX 实例分割推理，并在图片上添加检测掩膜后保存
-        * @param img 输入图像
-        * @param output 输出检测与掩膜结果数组
-        * @param save_path 自定义保存图像的路径及文件名（若为空则不保存）
-        * @return 状态码
-        */
-        StatusCode detect(cv::Mat& img, std::vector<OutputParams>& output, const std::string& save_path = "");
+         * @brief 执行实例分割检测主接口（同时输出可视化画布与纯净掩膜图像）
+         * @param img 输入原图
+         * @param output 检测与分割结果参数列表
+         * @param canvas 输出参数：渲染好的可视化画布（含框、Mask、标签）
+         * @param mask_img 输出参数：整张图的纯净分割掩膜图像（单通道灰度或全黑底色，目标区域为白色/ID色）
+         */
+        StatusCode detect(cv::Mat& img, std::vector<OutputParams>& output, cv::Mat& canvas, cv::Mat& mask_img);
 
         /**
         * @brief 提取并保存识别结果的全部掩膜图片
