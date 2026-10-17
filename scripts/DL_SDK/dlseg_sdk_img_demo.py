@@ -5,7 +5,8 @@ from dlseg_sdk import DlSegSDK
 def main():
     print("=== DlSeg Python SDK Demo 程序启动 ===")
     model_path = "./data/models/unload.onnx"
-    test_img_path = "./data/img/demo.png"
+    # test_img_path = "./data/img/demo.png"
+    test_img_path = "./data/img/testimg.jpg"
     output_save_path = "./data/img/output_masks/python_rotated_mask_result.png"
     
     # 独立保存纯掩膜的目录及文件名配置
@@ -36,7 +37,7 @@ def main():
             count, boxes = segmenter.detect(
                 img_np=img,
                 save_path=output_save_path,
-                max_boxes=50
+                max_boxes=100
             )
 
             if count >= 0:
