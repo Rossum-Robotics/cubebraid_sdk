@@ -49,7 +49,7 @@ int main()
                       << ", " << results[i].box.width << ", " << results[i].box.height << "]" << std::endl;
         }
 
-        // 2. 自定义路径和文件名保存全部掩膜结果
+        // 自定义路径和文件名保存全部掩膜结果
         std::string custom_path = "./data/img/output_masks";
         std::string custom_name = "custom_segmented_mask.png";
         
