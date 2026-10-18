@@ -41,6 +41,10 @@ int main()
 
     dlseg_sdk::SdkConfig config;
     config.model_path = "./data/models/unload.onnx";
+    
+    // 指定类别名称文件的路径（请确保该文件和模型在对应目录下或路径正确）
+    config.class_names_path = "./data/models/classes.txt"; 
+
     config.use_cuda = true;
     config.cuda_id = 0;
     config.warm_up = true;
@@ -71,12 +75,18 @@ int main()
         status = segmenter.detect(test_img, results, canvas, mask_img);
     }
     
-    
     if (status == dlseg_sdk::StatusCode::SUCCESS)
     {
         std::cout << "推理成功，检测到目标数量: " << results.size() << std::endl;
 
-        // 保存渲染好的可视化结果图
+        // 打印每个检测到的目标实际类名与置信度，供控制台查阅
+        for (size_t i = 0; i < results.size(); ++i)
+        {
+            std::cout << " - 目标 [" << i << "] 类别ID: " << results[i].id 
+                      << " 置信度: " << results[i].confidence * 100 << "%" << std::endl;
+        }
+
+        // 保存渲染好的可视化结果图（图片上的文字标签现在会自动显示实际类名）
         if (!canvas.empty())
         {
             std::string save_path = "./data/img/output_masks/result_mask.png";

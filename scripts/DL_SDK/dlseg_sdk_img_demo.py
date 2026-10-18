@@ -7,6 +7,7 @@ from dlseg_sdk import DlSegSDK
 def main():
     print("=== DlSeg Python SDK Demo 程序启动 ===")
     model_path = "./data/models/unload.onnx"
+    class_path = "./data/models/classes.txt"  # 指定类别名称文件路径
     test_img_path = "./data/img/testimg.jpg"
     output_save_path = "./data/img/output_masks/python_rotated_mask_result.png"
     
@@ -22,9 +23,10 @@ def main():
 
     try:
         with DlSegSDK() as segmenter:
-            # 初始化模型配置
+            # 初始化模型配置，传入 class_names_path 参数
             ret = segmenter.initialize(
                 model_path=model_path,
+                class_names_path=class_path,
                 use_cuda=1,
                 cuda_id=0,
                 warm_up=1
@@ -32,7 +34,7 @@ def main():
             if ret != 0:
                 print(f"[错误] 模型初始化失败，状态码: {ret}, 错误信息: {segmenter.get_last_error()}")
                 return
-            print("[成功] 模型初始化成功！")
+            print("[成功] 模型与类别标签初始化成功！")
             time.sleep(2)   # 为了计算实例分割耗时等待模型初始化完成（异步线程不阻塞，正常使用不需要等待）
             
             start = time.perf_counter()
@@ -49,7 +51,7 @@ def main():
             if count >= 0:
                 print(f"[成功] 推理成功，检测到目标数量: {count}")
                 
-                # 保存带有旋转框及半透明掩膜的可视化结果图
+                # 保存带有旋转框及半透明掩膜的可视化结果图（文字标签将正确显示实际类名）
                 if rendered_img is not None:
                     os.makedirs(os.path.dirname(output_save_path), exist_ok=True)
                     cv2.imwrite(output_save_path, rendered_img)

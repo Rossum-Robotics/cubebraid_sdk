@@ -27,6 +27,7 @@ class DlSegConfig(Structure):
     """深度学习分割模型配置结构"""
     _fields_ = [
         ("model_path", c_char_p),
+        ("class_names_path", c_char_p),  # 类别名称文件路径
         ("use_cuda", c_int),
         ("cuda_id", c_int),
         ("warm_up", c_int)
@@ -134,9 +135,14 @@ class DlSegSDK:
             if not self._handle:
                 raise RuntimeError("创建 DlSeg 实例句柄失败")
 
-    def initialize(self, model_path: str, use_cuda: int = 1, cuda_id: int = 0, warm_up: int = 1) -> int:
+    def initialize(self, model_path: str, class_names_path: str = "", use_cuda: int = 1, cuda_id: int = 0, warm_up: int = 1) -> int:
+        # 【关键修复】必须将编码后的 bytes 对象用局部变量保存，防止被垃圾回收导致指针失效
+        self._model_path_bytes = model_path.encode('utf-8') if model_path else None
+        self._class_names_path_bytes = class_names_path.encode('utf-8') if class_names_path else None
+
         config = DlSegConfig(
-            model_path=model_path.encode('utf-8'),
+            model_path=self._model_path_bytes,
+            class_names_path=self._class_names_path_bytes,
             use_cuda=use_cuda,
             cuda_id=cuda_id,
             warm_up=warm_up

@@ -50,6 +50,7 @@ namespace dlseg_sdk
     struct SdkConfig
     {
         std::string model_path;      // 模型路径
+        std::string class_names_path; // 类别名称文件路径（每行一个类名）
         bool use_cuda = true;        // 是否使用 CUDA
         int cuda_id = 0;             // CUDA 设备 ID
         bool warm_up = true;         // 是否在初始化时执行模型预热
