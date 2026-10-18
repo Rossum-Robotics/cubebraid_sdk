@@ -4,7 +4,8 @@ from dlseg_sdk import DlSegSDK
 
 def main():
     print("=== DlSeg Python SDK 摄像头实时识别 Demo 启动 ===")
-    model_path = "./data/models/unload.onnx"
+    # model_path = "./data/models/unload.onnx"
+    model_path = "./data/models/yolo26m-seg.onnx"
     
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
