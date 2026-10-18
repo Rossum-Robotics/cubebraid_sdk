@@ -1,4 +1,5 @@
 import cv2
+import time
 from dlseg_sdk import DlSegSDK
 
 def main():
@@ -22,6 +23,7 @@ def main():
                 cap.release()
                 return
             print("[成功] 初始化成功！按 'q' 键退出。")
+            time.sleep(2)   # 为了计算实例分割耗时等待模型初始化完成（异步线程不阻塞，正常使用不需要等待）
 
             while True:
                 ret, frame = cap.read()

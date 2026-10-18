@@ -22,7 +22,6 @@ def main():
 
     try:
         with DlSegSDK() as segmenter:
-            start = time.perf_counter()
             # 初始化模型配置
             ret = segmenter.initialize(
                 model_path=model_path,
@@ -34,10 +33,8 @@ def main():
                 print(f"[错误] 模型初始化失败，状态码: {ret}, 错误信息: {segmenter.get_last_error()}")
                 return
             print("[成功] 模型初始化成功！")
+            time.sleep(2)   # 为了计算实例分割耗时等待模型初始化完成（异步线程不阻塞，正常使用不需要等待）
             
-            end = time.perf_counter()
-            print(f"模型初始化耗时: {(end - start) * 1000:.3f} 毫秒")
-
             start = time.perf_counter()
             
             # 调用升级后的 detect 接口，同时获取渲染画布 (rendered_img) 和纯净全局掩膜 (mask_img)
@@ -47,7 +44,7 @@ def main():
             )
             
             end = time.perf_counter()
-            print(f"检测推理与渲染总耗时: {(end - start) * 1000:.3f} 毫秒 (主线程丝滑无卡顿)")
+            print(f"检测推理与渲染总耗时: {(end - start) * 1000:.3f} 毫秒")
 
             if count >= 0:
                 print(f"[成功] 推理成功，检测到目标数量: {count}")

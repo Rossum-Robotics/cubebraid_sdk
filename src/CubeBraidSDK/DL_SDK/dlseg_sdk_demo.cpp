@@ -1,7 +1,39 @@
 #include <iostream>
 #include <vector>
+#include <thread>
+#include <chrono>
+
 #include <opencv2/opencv.hpp>
 #include "CubeBraidSDK/DL_SDK/DlSegSdk.h"
+
+class ScopedTimer
+{
+public:
+    explicit ScopedTimer(const char* name)
+        : name_(name),
+          start_(std::chrono::steady_clock::now())
+    {
+    }
+
+    ~ScopedTimer()
+    {
+        const auto end = std::chrono::steady_clock::now();
+
+        const double ms =
+            std::chrono::duration<double, std::milli>(
+                end - start_).count();
+
+        std::cout << "[DlSegTimer] "
+                  << name_ << ": "
+                  << std::fixed << std::setprecision(3)
+                  << ms << " ms"
+                  << std::endl;
+    }
+
+private:
+    const char* name_;
+    std::chrono::steady_clock::time_point start_;
+};
 
 int main()
 {
@@ -19,8 +51,7 @@ int main()
         std::cerr << "模型初始化失败，错误信息: " << segmenter.getLastError() << std::endl;
         return -1;
     }
-    std::cout << "模型初始化成功！" << std::endl;
-
+    
     cv::Mat test_img = cv::imread("./data/img/demo.png");
     if (test_img.empty())
     {
@@ -28,12 +59,18 @@ int main()
         return -1;
     }
 
+    // 延时 2 秒
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // 为了计算实例分割耗时等待模型初始化完成（异步线程不阻塞，正常使用不需要等待）
+
     std::vector<dlseg_sdk::OutputParams> results;
     cv::Mat canvas;   // 接收渲染画布
     cv::Mat mask_img; // 接收单通道全局纯净掩膜
+    {
+        ScopedTimer timer("实例分割检测时间");
+        // 调用更新后的 detect 接口，同时获取 canvas 和 mask_img
+        status = segmenter.detect(test_img, results, canvas, mask_img);
+    }
     
-    // 调用更新后的 detect 接口，同时获取 canvas 和 mask_img
-    status = segmenter.detect(test_img, results, canvas, mask_img);
     
     if (status == dlseg_sdk::StatusCode::SUCCESS)
     {
