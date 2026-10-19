@@ -2,7 +2,7 @@ from ultralytics import YOLO
 
 def main():
     # 加载实例分割模型
-    model = YOLO("yolo11m-seg.pt")
+    model = YOLO("yolo26x-seg.pt")
 
     # 导出模型
     model.export(format="onnx")

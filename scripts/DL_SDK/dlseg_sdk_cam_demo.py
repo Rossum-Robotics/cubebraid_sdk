@@ -4,8 +4,8 @@ from dlseg_sdk import DlSegSDK
 
 def main():
     print("=== DlSeg Python SDK 摄像头实时识别 Demo 启动 ===")
-    model_path = "./data/models/unload.onnx"
-    class_path = "./data/models/classes.txt"  # 指定类别文件名路径
+    model_path = "./data/models/yolo26x-seg.onnx"
+    class_path = "./data/models/classes_yolo.txt"  # 指定类别文件名路径
     
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
