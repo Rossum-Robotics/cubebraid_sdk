@@ -49,6 +49,14 @@ int main()
     config.cuda_id = 0;
     config.warm_up = true;
 
+    // 根据模型实际训练情况调整
+    config.net_width = 320;        // 如果模型是320x320训练的，请设为320（默认 640）
+    config.net_height = 320;       // 同上
+    config.class_threshold = 0.25f; // 适当调低置信度阈值（默认 0.25f）防漏检
+    config.nms_threshold = 0.45f;
+    config.mask_threshold = 0.5f;
+    config.batch_size = 1;
+
     dlseg_sdk::StatusCode status = segmenter.initialize(config);
     if (status != dlseg_sdk::StatusCode::SUCCESS)
     {

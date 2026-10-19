@@ -47,13 +47,21 @@ namespace dlseg_sdk
     /**
      * @brief SDK 初始化配置参数
      */
-    struct SdkConfig
+    struct SdkConfig 
     {
-        std::string model_path;      // 模型路径
-        std::string class_names_path; // 类别名称文件路径（每行一个类名）
-        bool use_cuda = true;        // 是否使用 CUDA
-        int cuda_id = 0;             // CUDA 设备 ID
-        bool warm_up = true;         // 是否在初始化时执行模型预热
+        std::string model_path; // 模型路径
+        std::string class_names_path;   // 类别名称文件路径（每行一个类名）
+        bool use_cuda = true;   // 是否使用 CUDA
+        int cuda_id = 0;        // CUDA 设备 ID
+        bool warm_up = true;    // 是否在初始化时执行模型预热
+        
+        // 支持自定义输入尺寸与阈值
+        int net_width = 640;    // 模型输入宽度
+        int net_height = 640;   // 模型输入高度
+        float class_threshold = 0.25f; // 类别置信度阈值
+        float nms_threshold = 0.45f;    // NMS非极大值抑制阈值
+        float mask_threshold = 0.5f;    // 掩膜阈值
+        int batch_size = 1;  // 批大小
     };
 
     /**

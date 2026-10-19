@@ -8,7 +8,7 @@ def main():
     print("=== DlSeg Python SDK Demo 程序启动 ===")
     model_path = "./data/models/unload.onnx"
     class_path = "./data/models/classes.txt"  # 指定类别名称文件路径
-    test_img_path = "./data/img/testimg.jpg"
+    test_img_path = "./data/img/demo.png"
     output_save_path = "./data/img/output_masks/python_rotated_mask_result.png"
     
     # 纯净全局掩膜的保存路径及文件名配置
@@ -23,13 +23,19 @@ def main():
 
     try:
         with DlSegSDK() as segmenter:
-            # 初始化模型配置，传入 class_names_path 参数
+            # 初始化模型配置，支持传入网格尺寸与置信度等参数
             ret = segmenter.initialize(
                 model_path=model_path,
                 class_names_path=class_path,
                 use_cuda=1,
                 cuda_id=0,
-                warm_up=1
+                warm_up=1,
+                net_width=640,        # 如果模型是 320x320 训练的，请在此调整
+                net_height=640,       # 同上
+                class_threshold=0.25,  # 类别置信度阈值
+                nms_threshold=0.45, # NMS非极大值抑制阈值
+                mask_threshold=0.25, # 掩膜阈值
+                batch_size=1 # 批大小
             )
             if ret != 0:
                 print(f"[错误] 模型初始化失败，状态码: {ret}, 错误信息: {segmenter.get_last_error()}")

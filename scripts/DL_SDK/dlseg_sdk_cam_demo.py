@@ -4,8 +4,8 @@ from dlseg_sdk import DlSegSDK
 
 def main():
     print("=== DlSeg Python SDK 摄像头实时识别 Demo 启动 ===")
-    model_path = "./data/models/yolov8m-seg.onnx"
-    class_path = "./data/models/classes_yolo.txt"  # 指定类别文件名路径
+    model_path = "./data/models/unload.onnx"
+    class_path = "./data/models/classes.txt"  
     
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -18,8 +18,22 @@ def main():
     try:
         with DlSegSDK() as segmenter:
             print("[信息] 正在初始化模型与类别标签...")
-            # 【修改】传入 class_names_path 参数
-            ret = segmenter.initialize(model_path=model_path, class_names_path=class_path, use_cuda=1, cuda_id=0, warm_up=1)
+            
+            # 训练时的网格尺寸（如 320）和调整后的置信度阈值
+            ret = segmenter.initialize(
+                model_path=model_path, 
+                class_names_path=class_path, 
+                use_cuda=1, 
+                cuda_id=0, 
+                warm_up=1,
+                net_width=640,       # 如果模型是320x320训练的，请改为320
+                net_height=640,      # 同上
+                class_threshold=0.25, # 类别置信度阈值
+                nms_threshold=0.45, # NMS非极大值抑制阈值
+                mask_threshold=0.25, # 掩膜阈值
+                batch_size=1 # 批大小
+            )
+            
             if ret != 0:
                 print(f"[错误] 初始化失败: {segmenter.get_last_error()}")
                 cap.release()

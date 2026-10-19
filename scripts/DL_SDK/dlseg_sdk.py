@@ -30,7 +30,14 @@ class DlSegConfig(Structure):
         ("class_names_path", c_char_p),  # 类别名称文件路径
         ("use_cuda", c_int),
         ("cuda_id", c_int),
-        ("warm_up", c_int)
+        ("warm_up", c_int),
+        # 与 C++ 结构体对齐的配置字段
+        ("net_width", c_int),
+        ("net_height", c_int),
+        ("class_threshold", c_float),
+        ("nms_threshold", c_float),
+        ("mask_threshold", c_float),
+        ("batch_size", c_int)
     ]
 
 
@@ -135,8 +142,10 @@ class DlSegSDK:
             if not self._handle:
                 raise RuntimeError("创建 DlSeg 实例句柄失败")
 
-    def initialize(self, model_path: str, class_names_path: str = "", use_cuda: int = 1, cuda_id: int = 0, warm_up: int = 1) -> int:
-        # 【关键修复】必须将编码后的 bytes 对象用局部变量保存，防止被垃圾回收导致指针失效
+    def initialize(self, model_path: str, class_names_path: str = "", use_cuda: int = 1, cuda_id: int = 0, warm_up: int = 1,
+                   net_width: int = 640, net_height: int = 640, class_threshold: float = 0.25, 
+                   nms_threshold: float = 0.45, mask_threshold: float = 0.5, batch_size: int = 1) -> int:
+        """初始化 SDK 模型，支持自定义输入尺寸与阈值"""
         self._model_path_bytes = model_path.encode('utf-8') if model_path else None
         self._class_names_path_bytes = class_names_path.encode('utf-8') if class_names_path else None
 
@@ -145,7 +154,13 @@ class DlSegSDK:
             class_names_path=self._class_names_path_bytes,
             use_cuda=use_cuda,
             cuda_id=cuda_id,
-            warm_up=warm_up
+            warm_up=warm_up,
+            net_width=net_width,
+            net_height=net_height,
+            class_threshold=class_threshold,
+            nms_threshold=nms_threshold,
+            mask_threshold=mask_threshold,
+            batch_size=batch_size
         )
         return self._dll.DlSeg_Initialize(self._handle, byref(config))
 
