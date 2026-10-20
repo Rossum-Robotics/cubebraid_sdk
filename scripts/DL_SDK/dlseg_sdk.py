@@ -4,7 +4,7 @@ import ctypes
 import numpy as np
 
 from ctypes import (
-    Structure, c_void_p, c_int, c_float, c_ubyte, c_char_p,
+    Structure, c_void_p, c_int, c_float, c_ubyte, c_char_p, c_char,
     POINTER, CDLL, create_string_buffer, byref
 )
 
@@ -16,11 +16,13 @@ class DlSegBox(Structure):
         ("x", c_int),
         ("y", c_int),
         ("width", c_int),
-        ("height", c_int)
+        ("height", c_int),
+        ("class_name", c_char * 64)  # 对应 C 语言中的 char class_name[64]
     ]
 
     def __repr__(self):
-        return f"DlSegBox(id={self.id}, conf={self.confidence:.3f}, x={self.x}, y={self.y}, w={self.width}, h={self.height})"
+        name_str = self.class_name.decode('utf-8', errors='ignore').rstrip('\x00')
+        return f"DlSegBox(name={name_str}, id={self.id}, conf={self.confidence:.3f}, x={self.x}, y={self.y}, w={self.width}, h={self.height})"
 
 
 class DlSegConfig(Structure):
@@ -31,7 +33,7 @@ class DlSegConfig(Structure):
         ("use_cuda", c_int),
         ("cuda_id", c_int),
         ("warm_up", c_int),
-        # 与 C++ 结构体对齐的配置字段
+        # 扩展配置字段
         ("net_width", c_int),
         ("net_height", c_int),
         ("class_threshold", c_float),
@@ -43,7 +45,6 @@ class DlSegConfig(Structure):
 
 class DlSegSDK:
     """DlSeg C-API Python 封装类库"""
-
     def __init__(self, lib_path: str = None):
         curr_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -157,10 +158,10 @@ class DlSegSDK:
             warm_up=warm_up,
             net_width=net_width,
             net_height=net_height,
-            class_threshold=class_threshold,
-            nms_threshold=nms_threshold,
-            mask_threshold=mask_threshold,
-            batch_size=batch_size
+            class_threshold=float(class_threshold),
+            nms_threshold=float(nms_threshold),
+            mask_threshold=float(mask_threshold),
+            batch_size=int(batch_size)
         )
         return self._dll.DlSeg_Initialize(self._handle, byref(config))
 
