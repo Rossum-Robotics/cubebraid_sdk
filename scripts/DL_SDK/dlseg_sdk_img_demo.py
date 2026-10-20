@@ -32,7 +32,7 @@ def main():
                 warm_up=1,
                 net_width=640,        # 如果模型是 320x320 训练的，请在此调整
                 net_height=640,       # 同上
-                class_threshold=0.25,  # 类别置信度阈值
+                class_threshold=0.94,  # 类别置信度阈值
                 nms_threshold=0.45, # NMS非极大值抑制阈值
                 mask_threshold=0.25, # 掩膜阈值
                 batch_size=1 # 批大小
