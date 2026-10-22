@@ -5,7 +5,7 @@ project(cubebraid_sdk CXX)
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 # -----------------------------------------------------------------
 # 全局统一设置所有编译目标的输出目录
 # -----------------------------------------------------------------
