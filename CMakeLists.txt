@@ -6,6 +6,7 @@ project(cubebraid_sdk CXX)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+
 # -----------------------------------------------------------------
 # 全局统一设置所有编译目标的输出目录
 # -----------------------------------------------------------------
@@ -78,6 +79,25 @@ else()
     endif()
 endif()
 
+# ============================================================
+# 依赖库查找：Protobuf (跨平台适配，解决 AGV_SDK 符号解析问题)
+# ============================================================
+if(UNIX AND NOT APPLE)
+    # Linux 下强制锁定系统 Protobuf (3.12.4)，匹配系统 OpenCV 与 AGV_SDK
+    set(Protobuf_INCLUDE_DIR "/usr/include")
+    set(Protobuf_LIBRARIES "/usr/lib/x86_64-linux-gnu/libprotobuf.so")
+    if(NOT TARGET protobuf::libprotobuf)
+        add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
+        set_target_properties(protobuf::libprotobuf PROPERTIES
+            IMPORTED_LOCATION "${Protobuf_LIBRARIES}"
+            INTERFACE_INCLUDE_DIRECTORIES "${Protobuf_INCLUDE_DIR}"
+        )
+    endif()
+else()
+    # Windows 平台：尝试使用标准的 Protobuf 包查找
+    find_package(Protobuf QUIET)
+endif()
+
 # 查找 SDK 自身的动态库
 find_sdk_library(LIB_LOGGER "LoggerSDK")
 find_sdk_library(LIB_PLC "PLC_SDK")
@@ -91,9 +111,6 @@ find_sdk_library(LIB_DLSEG "DlSegSDK")
 
 # Linux 下额外查找第三方依赖库
 if(UNIX AND NOT APPLE)
-    # 查找 snap7 (解决 TS7Client 缺失问题)
-    # find_sdk_library(LIB_SNAP7 "snap7")
-
     # 查找 snap7：显式列出所有可能的动态库名（解决文件名大小写或带 .so.1 后缀问题）
     find_library(LIB_SNAP7
         NAMES snap7 Snap7 libsnap7 libSnap7 snap7.so.1 libsnap7.so.1
@@ -113,7 +130,7 @@ if(UNIX AND NOT APPLE)
     endif()
 
     # ============================================================
-    # 【核心修复】Linux 下查找 PCL 和 OpenMP 库，解决 CameraSDK 符号丢失问题
+    # Linux 下查找 PCL 和 OpenMP 库，解决 CameraSDK/DlSegSDK 符号丢失问题
     # ============================================================
     find_package(PCL REQUIRED COMPONENTS common io features segmentation)
     find_package(OpenMP REQUIRED)
@@ -146,9 +163,13 @@ target_link_libraries(sensorsdk_demo PRIVATE ${LIB_INCLINOMETER})
 add_executable(RobotSDK_demo ${PROJECT_SOURCE_DIR}/src/CubeBraidSDK/RobotSDK/RobotSDK_demo.cpp)
 target_link_libraries(RobotSDK_demo PRIVATE ${LIB_ROBOT})
 
-#### AGV SDK 测试demo
+#### AGV SDK 测试demo (Linux 下补充链接 protobuf::libprotobuf 解决未定义符号报错)
 add_executable(agv_sdk_demo ${PROJECT_SOURCE_DIR}/src/CubeBraidSDK/AGV_SDK/agv_sdk_demo.cpp)
-target_link_libraries(agv_sdk_demo PRIVATE ${LIB_AGV})
+if(UNIX AND NOT APPLE)
+    target_link_libraries(agv_sdk_demo PRIVATE ${LIB_AGV} protobuf::libprotobuf)
+else()
+    target_link_libraries(agv_sdk_demo PRIVATE ${LIB_AGV})
+endif()
 
 #### logger SDK 测试demo
 add_executable(logger_demo ${PROJECT_SOURCE_DIR}/src/CubeBraidSDK/LoggerSDK/logger_demo.cpp)
@@ -164,7 +185,6 @@ target_link_libraries(kawasaki_kinematics_sdk_demo PRIVATE ${LIB_KAWASAKI})
 
 #### Camera SDK 测试demo
 add_executable(CameraSDK_demo ${PROJECT_SOURCE_DIR}/src/CubeBraidSDK/CameraSDK/CameraSDK_demo.cpp)
-
 if(UNIX AND NOT APPLE)
     # Linux 下需显式补充链接 CameraSDK 隐式依赖的 PCL 以及 OpenMP
     target_link_libraries(CameraSDK_demo PRIVATE ${LIB_CAMERA} ${PCL_LIBRARIES} OpenMP::OpenMP_CXX)
@@ -179,7 +199,6 @@ if(UNIX AND NOT APPLE)
 else()
     target_link_libraries(dlseg_sdk_demo PRIVATE ${LIB_DLSEG} ${OpenCV_LIBS})
 endif()
-
 
 #### PLC SDK 测试demo (同时链接 PLC_SDK 与 snap7)
 add_executable(plc_sdk_demo ${PROJECT_SOURCE_DIR}/src/CubeBraidSDK/PLC_SDK/plc_sdk_demo.cpp)
