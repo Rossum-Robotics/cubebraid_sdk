@@ -23,9 +23,16 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 # 区分平台的库文件检索路径
 # -----------------------------------------------------------------
 if(WIN32)
+    # Windows 平台
     set(SDK_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/win")
-else()
-    set(SDK_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/linux")
+elseif(UNIX AND NOT APPLE)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+        # ARM 平台（如 Jetson、树莓派 64位等）
+        set(SDK_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/linux_arm")
+    else()
+        # Ubuntu / Linux x86_64 平台
+        set(SDK_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/linux")
+    endif()
 endif()
 
 message(STATUS "Current SDK Link Directory: ${SDK_LIB_DIR}")
@@ -83,9 +90,16 @@ endif()
 # 依赖库查找：Protobuf (跨平台适配，解决 AGV_SDK 符号解析问题)
 # ============================================================
 if(UNIX AND NOT APPLE)
-    # Linux 下强制锁定系统 Protobuf (3.12.4)，匹配系统 OpenCV 与 AGV_SDK
     set(Protobuf_INCLUDE_DIR "/usr/include")
-    set(Protobuf_LIBRARIES "/usr/lib/x86_64-linux-gnu/libprotobuf.so")
+
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+        # ARM 平台（如 Jetson）：使用指定的源码编译路径
+        set(Protobuf_LIBRARIES "/home/nvidia/demo_ws/protobuf/build/libprotobuf.so")
+    else()
+        # Ubuntu / Linux x86_64 平台：使用指定的源码编译路径
+        set(Protobuf_LIBRARIES "/home/grantli/protobuf/build/libprotobuf.so")
+    endif()
+
     if(NOT TARGET protobuf::libprotobuf)
         add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
         set_target_properties(protobuf::libprotobuf PROPERTIES
@@ -144,15 +158,22 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # -----------------------------------------------------------------
-# 3. Linux (Ubuntu) 专属设置：动态库运行时搜索路径 (RPATH)
+# Linux (Ubuntu) 专属设置：动态库运行时搜索路径 (RPATH)
 # -----------------------------------------------------------------
 if(UNIX AND NOT APPLE)
-    set(CMAKE_INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib/linux:$ORIGIN/../lib")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+        # ARM 平台（如 Jetson）
+        set(CMAKE_INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib/linux_arm:$ORIGIN/../lib")
+    else()
+        # Ubuntu / Linux x86_64 平台
+        set(CMAKE_INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib/linux:$ORIGIN/../lib")
+    endif()
+    
     set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
 # -----------------------------------------------------------------
-# 4. 构建各个 Demo 目标
+# 构建各个 Demo 目标
 # -----------------------------------------------------------------
 
 #### sensor SDK 测试demo

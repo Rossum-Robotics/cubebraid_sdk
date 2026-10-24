@@ -27,6 +27,53 @@ cmake -G "Visual Studio 17 2022" -A x64 ..
 sudo apt update
 sudo apt install -y build-essential cmake
 ```
+
+### 安装 Protobuf(版本 >= 3.21.0)
+#### 源码编译
+```bash
+# 安装构建依赖
+sudo apt-get update
+sudo apt-get install -y build-essential cmake git libtool autoconf automake pkg-config
+
+# 载 Protobuf 源码及子模块
+# 切换到临时工作目录
+cd ~
+
+# 克隆源码（以 v21.12 稳定版本为例）
+git clone --recursive -b v21.12 https://github.com/protocolbuffers/protobuf.git
+cd protobuf
+
+# 使用 CMake 编译与安装
+# 创建构建目录
+mkdir build && cd build
+
+# 配置 CMake 项目
+# -Dprotobuf_BUILD_TESTS=OFF：关闭测试，加快编译过程
+# -DCMAKE_BUILD_TYPE=Release：生成 release 优化版本
+# -DBUILD_SHARED_LIBS=ON：生成动态链接库 (.so)
+cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -Dprotobuf_BUILD_TESTS=OFF \
+    -DBUILD_SHARED_LIBS=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr/local
+
+# 开始编译（-j$(nproc) 使用全核加速）
+make -j$(nproc)
+
+# 安装至系统目录 (/usr/local)
+sudo make install
+
+# 更新动态链接库缓存
+sudo ldconfig
+
+# 验证安装与版本
+protoc --version
+
+# 检查可执行文件路径
+which protoc
+```
+
+
 ## 创建并进入构建目录
 ```bash
 mkdir build
