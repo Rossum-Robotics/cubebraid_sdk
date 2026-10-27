@@ -98,7 +98,7 @@ int main()
         // 调用 detect 接口，同时获取 canvas 和 mask_img（内部会阻塞等待异步初始化完毕）
         status = segmenter.detect(test_img, results, canvas, mask_img);
     }
-    
+
     // 处理推理结果
     if (status == dlseg_sdk::StatusCode::SUCCESS)
     {
