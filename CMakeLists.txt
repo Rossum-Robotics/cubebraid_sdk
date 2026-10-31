@@ -221,6 +221,14 @@ else()
     target_link_libraries(dlseg_sdk_demo PRIVATE ${LIB_DLSEG} ${OpenCV_LIBS})
 endif()
 
+#### DlSeg SDK 视频流测试demo
+add_executable(dlseg_sdk_demo_cam ${PROJECT_SOURCE_DIR}/src/CubeBraidSDK/DL_SDK/dlseg_sdk_demo_cam.cpp)
+if(UNIX AND NOT APPLE)
+    target_link_libraries(dlseg_sdk_demo_cam PRIVATE ${LIB_DLSEG} ${OpenCV_LIBS} OpenMP::OpenMP_CXX)
+else()
+    target_link_libraries(dlseg_sdk_demo_cam PRIVATE ${LIB_DLSEG} ${OpenCV_LIBS})
+endif()
+
 #### PLC SDK 测试demo (同时链接 PLC_SDK 与 snap7)
 add_executable(plc_sdk_demo ${PROJECT_SOURCE_DIR}/src/CubeBraidSDK/PLC_SDK/plc_sdk_demo.cpp)
 if(UNIX AND NOT APPLE)
