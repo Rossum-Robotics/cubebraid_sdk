@@ -5,9 +5,24 @@
 #include <iomanip>
 #include <atomic>
 #include <mutex>
+#include <cstdlib>
+#include <ctime>
 
 #include <opencv2/opencv.hpp>
 #include "CubeBraidSDK/DL_SDK/DlSegSdk.h"
+
+// 线程与数据同步相关全局变量
+cv::Mat g_raw_frame;
+std::mutex g_frame_mutex;        // 保护摄像头原始帧的互斥锁
+
+std::atomic<bool> g_running(true);
+std::mutex g_canvas_mutex;       // 保护渲染画布的互斥锁
+cv::Mat latest_canvas;
+
+// 实例化 SDK 对象
+dlseg_sdk::DlSegSdk segmenter;
+dlseg_sdk::SdkConfig config;
+dlseg_sdk::StatusCode dl_status;
 
 /**
  * @brief 作用域计时器类：用于精准测量代码块执行耗时并在析构时打印
@@ -24,16 +39,13 @@ public:
     ~ScopedTimer()
     {
         const auto end = std::chrono::steady_clock::now();
+        const double ms = std::chrono::duration<double, std::milli>(end - start_).count();
+        if (ms > 100)
+        {
+            std::cout << "[DlSegTimer] " << name_ << ": " << std::fixed << std::setprecision(3) << ms << " ms" << std::endl;
 
-        const double ms =
-            std::chrono::duration<double, std::milli>(
-                end - start_).count();
-
-        std::cout << "[DlSegTimer] "
-                  << name_ << ": "
-                  << std::fixed << std::setprecision(3)
-                  << ms << " ms"
-                  << std::endl;
+        }
+        
     }
 
 private:
@@ -41,27 +53,79 @@ private:
     std::chrono::steady_clock::time_point start_;
 };
 
+// 异步检测与识别线程函数
+void RecognitionThread()
+{
+    while (g_running)
+    {
+        cv::Mat img_to_process;
+        
+        // 1. 安全地从全局获取一帧并深拷贝（避免多线程冲突）
+        {
+            std::lock_guard<std::mutex> lock(g_frame_mutex);
+            if (g_raw_frame.empty() || g_raw_frame.cols <= 0 || g_raw_frame.rows <= 0)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                continue;
+            }
+            img_to_process = g_raw_frame.clone();
+        }
+
+        // 2. 按照你的要求：获取图片后随机做缩放
+        double scale_factors[] = {0.5, 0.75, 1.0, 1.25, 1.5};
+        int rand_idx = std::rand() % 5;
+        double scale = scale_factors[rand_idx];
+
+        int target_w = static_cast<int>(img_to_process.cols * scale);
+        int target_h = static_cast<int>(img_to_process.rows * scale);
+        if (target_w < 64) target_w = 64;
+        if (target_h < 64) target_h = 64;
+
+        cv::Mat img_copy;
+        cv::resize(img_to_process, img_copy, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
+
+        // 3. 执行 ONNX 检测与分割推理
+        std::vector<dlseg_sdk::OutputParams> dl_results;
+        cv::Mat canvas;   
+        cv::Mat mask_img; 
+
+        {
+            ScopedTimer timer("实例分割总耗时");
+            dl_status = segmenter.detect(img_copy, dl_results, canvas, mask_img);
+        }
+
+        // 4. 安全更新渲染画布
+        if (dl_status == dlseg_sdk::StatusCode::SUCCESS)
+        {
+            std::lock_guard<std::mutex> lock(g_canvas_mutex);
+            if (!canvas.empty())
+            {
+                latest_canvas = canvas.clone();
+            }
+        }
+
+        // 适当休眠，避免单线程过载
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+}
+
 int main()
 {
     std::cout << "=== 启动 DlSegSdk 摄像头实时实例分割 Demo ===" << std::endl;
 
-    // 实例化 SDK 对象
-    dlseg_sdk::DlSegSdk segmenter;
+    // 初始化随机数种子
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
-    // 配置 SDK 初始化参数
-    dlseg_sdk::SdkConfig config;
     config.model_path = "./data/models/unload.onnx";
     config.class_names_path = "./data/models/classes.txt"; 
-
-    config.use_cuda = true;        // 是否开启 CUDA 加速
+    config.use_cuda = true;        
     config.cuda_id = 0;
     config.warm_up = true;
-
-    config.net_width = 640;         // 模型输入宽度
-    config.net_height = 640;        // 模型输入高度
-    config.class_threshold = 0.25f; // 置信度阈值
-    config.nms_threshold = 0.45f;   // NMS 阈值
-    config.mask_threshold = 0.5f;   // 掩膜阈值
+    config.net_width = 640;         
+    config.net_height = 640;        
+    config.class_threshold = 0.25f; 
+    config.nms_threshold = 0.45f;   
+    config.mask_threshold = 0.5f;   
     config.batch_size = 1;
 
     // 异步初始化 SDK
@@ -72,106 +136,62 @@ int main()
         return -1;
     }
 
-    // 等待模型后台异步加载完成
     std::cout << "正在等待后台异步加载模型与初始化..." << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(2)); 
 
-    // 打开电脑摄像头（通常 0 代表默认摄像头）
-    cv::VideoCapture cap(0);
+    // 打开电脑摄像头
+    cv::VideoCapture cap(0, cv::CAP_MSMF);
     if (!cap.isOpened())
     {
-        std::cerr << "错误：无法打开电脑摄像头！请检查设备连接或摄像头权限。" << std::endl;
+        std::cerr << "错误：无法打开电脑摄像头！" << std::endl;
         return -1;
     }
 
-    // 设置摄像头分辨率（可根据需要调整）
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
-
     std::cout << "摄像头已成功打开，按键盘上的 'ESC' 键可以退出实时检测。" << std::endl;
 
-    // 线程控制变量
-    std::atomic<bool> g_running(true);
-    std::mutex mtx;
-    cv::Mat current_frame;
-    cv::Mat latest_canvas;
-    bool has_new_frame = false;
-
-    // 创建独立线程用于循环捕获和实时推理
-    std::thread capture_detect_thread([&]() {
-        while (g_running)
-        {
-            cv::Mat frame;
-            {
-                std::lock_guard<std::mutex> lock(mtx);
-                if (current_frame.empty())
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                    continue;
-                }
-                frame = current_frame.clone(); // 拷贝一帧用于检测
-            }
-
-            // 执行实例分割推理
-            std::vector<dlseg_sdk::OutputParams> results;
-            cv::Mat canvas;
-            cv::Mat mask_img;
-
-            {
-                ScopedTimer timer("摄像头单帧实例分割耗时");
-                status = segmenter.detect(frame, results, canvas, mask_img);
-            }
-
-            if (status == dlseg_sdk::StatusCode::SUCCESS)
-            {
-                std::lock_guard<std::mutex> lock(mtx);
-                if (!canvas.empty())
-                {
-                    latest_canvas = canvas.clone();
-                    has_new_frame = true;
-                }
-            }
-            else
-            {
-                std::cerr << "推理失败，状态码: " << static_cast<int>(status) 
-                          << " (" << dlseg_sdk::statusToString(status) << ")" << std::endl;
-            }
-        }
-    });
+    // 启动视觉识别线程
+    g_running = true;
+    std::thread recog_thread(RecognitionThread);
 
     // 主线程负责从摄像头读取画面，并刷新显示窗口
     while (g_running)
     {
-        cv::Mat frame;
-        cap >> frame;
-        if (frame.empty())
+        cv::Mat temp_frame;
+        cap >> temp_frame;
+        
+        if (temp_frame.empty() || temp_frame.cols <= 0 || temp_frame.rows <= 0)
         {
-            std::cerr << "警告：捕获到空视频帧！" << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
 
-        // 将读取到的最新帧更新给工作线程
+        // 安全地将摄像头新帧写入全局变量
         {
-            std::lock_guard<std::mutex> lock(mtx);
-            current_frame = frame;
+            std::lock_guard<std::mutex> lock(g_frame_mutex);
+            g_raw_frame = temp_frame.clone();
         }
 
-        // 显示带有检测和渲染结果的画布
+        // 获取显示内容
         cv::Mat display_mat;
         {
-            std::lock_guard<std::mutex> lock(mtx);
-            if (has_new_frame && !latest_canvas.empty())
+            std::lock_guard<std::mutex> lock(g_canvas_mutex);
+            if (!latest_canvas.empty())
             {
                 display_mat = latest_canvas.clone();
             }
             else
             {
-                display_mat = frame; // 还没有推理出结果前先展示原图
+                std::lock_guard<std::mutex> lock(g_frame_mutex);
+                display_mat = g_raw_frame.clone(); // 还没有推理出结果前先展示原图
             }
         }
 
-        cv::imshow("DlSegSdk 实时摄像头检测", display_mat);
+        if (!display_mat.empty())
+        {
+            cv::imshow("DlSegSdk 实时摄像头检测", display_mat);
+        }
 
         // 检测键盘输入，按下 ESC (键值 27) 退出
         char key = static_cast<char>(cv::waitKey(1));
@@ -182,10 +202,10 @@ int main()
         }
     }
 
-    // 5. 回收线程资源与释放摄像头
-    if (capture_detect_thread.joinable())
+    // 回收线程资源与释放摄像头
+    if (recog_thread.joinable())
     {
-        capture_detect_thread.join();
+        recog_thread.join();
     }
 
     cap.release();
