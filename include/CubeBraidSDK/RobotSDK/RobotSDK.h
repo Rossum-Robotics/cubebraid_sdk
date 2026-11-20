@@ -142,6 +142,24 @@ namespace robot_sdk
         );
 
         /**
+        * @brief 顶吸偏移量xyz求解(与侧吸同层)
+        * @param centroid 基准点位置 (单位: 米)
+        * @param box SKU 产品尺寸 (单位: 毫米)
+        * @param fetchMode 抓取模式 (1,2: 沿长边抓取; 3,4: 沿短边抓取)
+        * @param fetchMode_side 左下参考基准纸箱抓取模式 (1,2: 沿长边抓取; 3,4: 沿短边抓取)
+        * @param sku_num 并排抓取的 SKU 数量
+        * @param dis_y 每层剩余缝隙
+        * @param poseOffset json垛型x,y,z数据 (单位: 毫米)
+        * @param ROffset 垛型最左侧标志位 (true: 最左侧, false: 右侧)
+        * @param model_mod 是否为第一面(0为第一面, 1为其它面)
+        * @param inclx_angle 倾角仪角度
+        * @return Pose 计算得出的最终机器人工具端目标位姿 (单位: 毫米)
+        */
+        static Pose Top_suction_angle_switch(
+            const Pose& centroid, const BoxDimension& box, int fetchMode, int fetchMode_side,
+            int sku_num, float dis_y, const Pose& poseOffset, bool ROffset, int model_mod, double inclx_angle);
+
+        /**
         * @brief 顶吸特殊码法偏移量xyz求解
         * @param centroid 基准点位置 (单位: 米)
         * @param box SKU 产品尺寸 (单位: 毫米)
@@ -240,6 +258,15 @@ extern "C" {
     ROBOT_API int Robot_TopSuctionAngle(
         RobotHandle handle,
         robot_sdk::Pose centroid, robot_sdk::BoxDimension box, int fetchMode,
+        int sku_num, float dis_y, robot_sdk::Pose poseOffset, bool ROffset,
+        int model_mod, double inclx_angle,
+        double* x, double* y, double* z
+    );
+
+    /** @brief 带倾角补偿的顶吸目标位姿计算(同一面顶/侧吸混合) */
+    ROBOT_API int Robot_TopSuctionAngleSwitch(
+        RobotHandle handle,
+        robot_sdk::Pose centroid, robot_sdk::BoxDimension box, int fetchMode, int fetchMode_side,
         int sku_num, float dis_y, robot_sdk::Pose poseOffset, bool ROffset,
         int model_mod, double inclx_angle,
         double* x, double* y, double* z
