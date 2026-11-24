@@ -54,6 +54,34 @@ typedef struct
 
 #pragma pack(pop)
 
+// 四组吸盘阀的 8421 位掩码（C/C++ 共用，支持按位或组合）。
+// PLC：DB22.DBW48，INT，西门子大端字节序。
+typedef enum
+{
+    PLC_SUCTION_VALVE_1   = 0x01, // 0001：阀1
+    PLC_SUCTION_VALVE_2   = 0x02, // 0010：阀2
+    PLC_SUCTION_VALVE_3   = 0x04, // 0100：阀3
+    PLC_SUCTION_VALVE_4   = 0x08, // 1000：阀4
+    PLC_SUCTION_VALVE_ALL = 0x0F  // 1111：全部吸盘阀
+} PLCSuctionValve;
+
+// 吸盘选择命令的 SDK 写入状态，不代表气阀动作或真空建立状态。
+typedef enum
+{
+    PLC_SUCTION_SELECTION_IDLE      = 0, // 尚未提交
+    PLC_SUCTION_SELECTION_PENDING   = 1, // 等待后台线程写入
+    PLC_SUCTION_SELECTION_WRITTEN   = 2, // DBW48 写入成功
+    PLC_SUCTION_SELECTION_FAILED    = 3, // 写入失败，禁止使用旧选择开吸盘
+    PLC_SUCTION_SELECTION_CANCELLED = 4  // 请求取消或连接已断开
+} PLCSuctionSelectionState;
+
+// 独立状态结构，不改变原 PLCStatus、PickUpData 的内存布局。
+typedef struct
+{
+    int32_t selection_mask; // 最近受理的选择值（0表示尚未选择，不是PLC指令）
+    int32_t write_state;    // PLCSuctionSelectionState 中的状态值
+} PLCSuctionSelectionStatus;
+
 // C API 句柄定义
 typedef void* PLC_HANDLE;
 // =================================================================
@@ -128,6 +156,28 @@ extern "C"
     * @return None
     */
     PLC_SDK_API void plc_set_open_suction_cup(PLC_HANDLE handle, bool enable);
+
+    /**
+    * @brief 提交吸盘选择命令（DB22.DBW48，1~15）
+    * @return true 请求已受理，实际写入结果通过状态接口获取
+    * @note 禁止在吸持工件、开关命令待处理或已有选择请求待处理时切换。
+    *       调用方须先确认夹具处于可安全切换的状态。
+    */
+    PLC_SDK_API bool plc_set_suction_cup_selection(PLC_HANDLE handle, int selection);
+
+    /** @brief 通过四个布尔参数选择吸盘阀组；全部false不发送。 */
+    PLC_SDK_API bool plc_set_suction_cup_valves(PLC_HANDLE handle,
+        bool valve1, bool valve2, bool valve3, bool valve4);
+
+    /** @brief 获取最近一次受理的吸盘选择及SDK写入状态。 */
+    PLC_SDK_API bool plc_get_suction_cup_selection_status(PLC_HANDLE handle,
+        PLCSuctionSelectionStatus* status_out);
+
+    /**
+    * @brief 提交开吸盘命令，返回是否受理（不是动作成功反馈）。
+    * @note 使用分组控制后，必须先确认选择写入成功，并由调用方确认PLC已应用选择。
+    */
+    PLC_SDK_API bool plc_request_open_suction_cup(PLC_HANDLE handle);
 
     /**
     * @brief 发送机器人吸取ok信号
@@ -325,6 +375,28 @@ namespace plc_sdk
         */
         void setOpenSuctionCup(bool enable);
 
+        // C++ 吸盘阀组编码，与 C API 常量一致。
+        enum SuctionValve : uint16_t
+        {
+            VALVE_1   = PLC_SUCTION_VALVE_1,
+            VALVE_2   = PLC_SUCTION_VALVE_2,
+            VALVE_3   = PLC_SUCTION_VALVE_3,
+            VALVE_4   = PLC_SUCTION_VALVE_4,
+            VALVE_ALL = PLC_SUCTION_VALVE_ALL
+        };
+
+        /** @brief 异步选择吸盘阀组，合法值1~15；true仅表示请求已受理。 */
+        bool setSuctionCupSelection(int selection);
+
+        /** @brief 四组吸盘独立选择，内部转换为8421位掩码。 */
+        bool setSuctionCupValves(bool valve1, bool valve2, bool valve3, bool valve4);
+
+        /** @brief 查询选择命令的SDK写入状态（非实际阀组/真空反馈）。 */
+        PLCSuctionSelectionStatus getSuctionCupSelectionStatus();
+
+        /** @brief 申请打开吸盘；选择未完成或失败时拒绝受理。 */
+        bool requestOpenSuctionCup();
+
         /**
         * @brief 发送机器人吸取ok信号
         * @param enable 是否打开
@@ -456,6 +528,14 @@ namespace plc_sdk
         bool close_suction_cup_signal_{false};          // 吸盘关闭信号
         bool inclinometer_error_signal_{false};         // 倾角仪异常信号
         bool unload_ok_signal_{false};                  // 卸柜放置OK信号
+
+        // 吸盘分组控制状态：以下成员均由 signal_mutex_ 保护。
+        // 启用分组控制后，断线重连必须重新选择，不自动沿用旧掩码。
+        bool suction_selection_enabled_{false};
+        PLCSuctionSelectionStatus suction_selection_status_{0, PLC_SUCTION_SELECTION_IDLE};
+        // SDK侧保守互锁：发出过开吸盘命令后，须成功写入关闭命令才解除。
+        // 该标志不是PLC实际吸持状态；关闭写入成功也不等于工件已释放。
+        bool suction_open_may_be_active_{false};
 
         PLCStatus current_status_{};    // PLC当前状态
 
