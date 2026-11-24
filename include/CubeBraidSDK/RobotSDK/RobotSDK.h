@@ -87,7 +87,7 @@ namespace robot_sdk
 
         /**
          * @brief 基于关节角度的运动控制
-         * @param mode 运动控制模式 (Coarse/Fine)
+         * @param mode 运动控制模式 (Coarse/Fine/Transition)
          * @param joint 6 个关节的目标角度
          * @return bool 执行是否成功
          */
